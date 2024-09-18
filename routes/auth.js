@@ -6,20 +6,20 @@ const bcrypt = require("bcryptjs");
 
 // Sign-In Route
 router.post("/signin", async (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
   try {
-    const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ msg: "User not found" });
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ msg: "User not found" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
+    if (!isMatch) {
+      return res.status(400).json({ msg: "Invalid credentials" });
+    }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      "Niluxsan_fullstack_webdeveloper",
-      { expiresIn: "1d" }
-    );
-    res.json({ token });
+    // Send role along with success message
+    res.status(200).json({ msg: "Sign-in successful", role: user.role });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
   }
@@ -27,11 +27,18 @@ router.post("/signin", async (req, res) => {
 
 // Sign-Up Route
 router.post("/signup", async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, role, email } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, password: hashedPassword, role });
+    const newUser = new User({
+      username,
+      password: hashedPassword,
+      role,
+      email,
+    });
+    console.log(newUser);
     await newUser.save();
+    console.log(newUser);
     res.status(201).json({ msg: "User created" });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
