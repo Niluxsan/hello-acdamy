@@ -116,6 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// Sign in
 document.addEventListener("DOMContentLoaded", () => {
   const signinForm = document.getElementById("signin-form");
 
@@ -139,18 +140,29 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok) {
         alert("Sign-in successful!");
 
+        // Store the JWT in localStorage
+        localStorage.setItem("token", result.token);
+
         // Redirect based on the role
-        if (result.role === "student") {
-          window.location.href = "/student-dashboard.html";
-        } else if (result.role === "teacher") {
-          window.location.href = "/teacher-dashboard.html";
-        } else if (result.role === "admin") {
-          window.location.href = "/admin-dashboard.html";
+        switch (result.role) {
+          case "student":
+            window.location.href = "/student-dashboard.html";
+            break;
+          case "teacher":
+            window.location.href = "/teacher-dashboard.html";
+            break;
+          case "admin":
+            window.location.href = "/admin-dashboard.html";
+            break;
+          default:
+            alert("Unknown role");
         }
       } else {
-        alert(`Error: ${result.msg}`);
+        console.error("Sign-in error:", result);
+        alert(`Error: ${result.msg || "Sign-in failed."}`);
       }
     } catch (error) {
+      console.error("Fetch error:", error);
       alert("An error occurred. Please try again.");
     }
   });

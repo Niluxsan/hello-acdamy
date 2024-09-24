@@ -1,24 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-
-// Middleware to verify token
-const authMiddleware = (req, res, next) => {
-  const token = req.headers["x-auth-token"];
-  if (!token)
-    return res.status(401).json({ msg: "No token, authorization denied" });
-
-  jwt.verify(token, "your_jwt_secret", (err, decoded) => {
-    if (err) return res.status(401).json({ msg: "Token is not valid" });
-    req.user = decoded;
-    next();
-  });
-};
-
+const authMiddleware = require("./../authMiddleware");
 // Dashboard Route
 router.get("/dashboard", authMiddleware, (req, res) => {
-  const role = req.user.role;
+  const role = req.user.role; // Get user role from decoded token
+
+  // Redirect based on user role
   switch (role) {
     case "student":
       res.redirect("/student-dashboard");
@@ -30,8 +17,9 @@ router.get("/dashboard", authMiddleware, (req, res) => {
       res.redirect("/admin-dashboard");
       break;
     default:
-      res.status(403).json({ msg: "Access denied" });
+      res.status(403).json({ msg: "Access denied" }); // Invalid role
   }
 });
 
+// Export the router
 module.exports = router;
