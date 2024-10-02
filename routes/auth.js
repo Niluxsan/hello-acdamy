@@ -7,6 +7,7 @@ const { body, validationResult } = require("express-validator");
 require("dotenv").config();
 
 // Check if JWT_SECRET is defined
+
 if (!process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET must be defined in .env file");
 }
@@ -45,10 +46,16 @@ router.post(
         { expiresIn: "1h" } // Token expiry time (1 hour)
       );
 
-      // Send token and role along with success message
-      res
-        .status(200)
-        .json({ msg: "Sign-in successful", token, role: user.role });
+      // Send token, user details (name, email, role) and success message
+      res.status(200).json({
+        msg: "Sign-in successful",
+        token, // JWT token
+        user: {
+          name: user.username, // User's name
+          email: user.email, // User's email
+          role: user.role, // User's role
+        },
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ msg: "Server error" });
@@ -90,10 +97,10 @@ router.post(
       });
 
       await newUser.save();
-      res.status(201).json({ msg: "User created" });
+      res.status(201).json({ msg: "User created 😍" });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ msg: "Server error" });
+      res.status(500).json({ msg: "Server error ☹️" });
     }
   }
 );
