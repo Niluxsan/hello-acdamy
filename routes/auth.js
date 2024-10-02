@@ -67,6 +67,7 @@ router.post(
 router.post(
   "/signup",
   [
+    // Validation for incoming fields
     body("email").isEmail().withMessage("Please enter a valid email"),
     body("password")
       .isLength({ min: 6 })
@@ -82,25 +83,35 @@ router.post(
 
     const { username, password, role, email } = req.body;
     try {
-      // Check if user already exists
+      // Check if a user with this email already exists
       const existingUser = await User.findOne({ email });
       if (existingUser) {
         return res.status(400).json({ msg: "User already exists" });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Create a new user instance
       const newUser = new User({
         username,
-        password: hashedPassword,
+        password, // Password will be hashed in the schema pre-save hook
         role,
         email,
       });
 
+      // Save the new user to the database
       await newUser.save();
-      res.status(201).json({ msg: "User created 😍" });
+
+      // Respond with a success message and the user details
+      res.status(201).json({
+        msg: "User created successfully 🎉",
+        user: {
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+        },
+      });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ msg: "Server error ☹️" });
+      res.status(500).json({ msg: "Server error" });
     }
   }
 );
