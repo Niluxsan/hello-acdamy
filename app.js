@@ -4,6 +4,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth");
 const dashboardRoutes = require("./routes/dashboard");
 const cors = require("cors");
+const path = require("path"); // Import path module
 
 const app = express();
 connectDB();
@@ -17,6 +18,10 @@ app.use(
 );
 app.use(express.json()); // Use built-in JSON middleware
 app.use(express.static("public")); // Serve static files
+
+// Set views directory for HTML files if using res.render()
+app.set("views", path.join(__dirname, "myViews"));
+app.set("view engine", "ejs"); // Optional if you want to serve HTML files as views
 
 // Routes
 app.use("/api/auth", authRoutes);

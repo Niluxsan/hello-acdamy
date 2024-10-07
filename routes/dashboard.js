@@ -77,7 +77,7 @@ router.delete("/admin/users/delete/:id", authMiddleware, async (req, res) => {
 router.get("/admin/schedules", authMiddleware, async (req, res) => {
   try {
     const schedules = await Schedule.find().populate("teacher", "name"); // Fetch class schedules with teacher name
-    res.render("admin/schedules", { schedules }); // Render schedule list in the admin view
+    res.json(schedules);
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
