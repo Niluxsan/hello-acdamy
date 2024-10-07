@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Class Schedules</title>
+    <link rel="stylesheet" href="/path/to/your/styles.css" />
+    <!-- Link to your CSS file -->
+  </head>
+  <body>
+    <h1>Class Schedules</h1>
+
+    <% if (schedules.length > 0) { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Schedule ID</th>
+          <th>Class Name</th>
+          <th>Teacher</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% schedules.forEach(schedule => { %>
+        <tr>
+          <td><%= schedule._id %></td>
+          <td><%= schedule.className %></td>
+          <!-- Change 'className' to the actual field in your Schedule model -->
+          <td><%= schedule.teacher.name %></td>
+          <td><%= schedule.time %></td>
+          <!-- Change 'time' to the actual field in your Schedule model -->
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% } else { %>
+    <p>No schedules available.</p>
+    <% } %>
+
+    <a href="/admin">Back to Admin</a>
+  </body>
+</html>
