@@ -24,10 +24,23 @@ router.get("/dashboard", authMiddleware, (req, res) => {
 // Admin Routes
 
 // View All Users
-router.get("/admin/users", authMiddleware, async (req, res) => {
+router.get("/admin/users", async (req, res) => {
+  const limit = parseInt(req.query.limit) || 10; // Default limit to 10 if not provided
+  const page = parseInt(req.query.page) || 1; // Default page to 1 if not provided
+
   try {
-    const users = await User.find(); // Fetch all users from the database
-    res.render("admin/users", { users }); // Render users in the admin view
+    const users = await User.find({}, "username email role")
+      .limit(limit) // Limit the number of users returned
+      .skip((page - 1) * limit); // Skip users based on the page number
+
+    const totalUsers = await User.countDocuments(); // Get total count of users
+
+    res.json({
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page,
+      users,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
@@ -41,7 +54,7 @@ router.get("/admin/users/edit/:id", authMiddleware, async (req, res) => {
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
-    res.render("admin/editUser", { user }); // Render edit user form
+    res.json(user);
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
@@ -51,8 +64,20 @@ router.get("/admin/users/edit/:id", authMiddleware, async (req, res) => {
 // Edit User Details (POST)
 router.post("/admin/users/edit/:id", authMiddleware, async (req, res) => {
   try {
-    await User.findByIdAndUpdate(req.params.id, req.body); // Update user in the database
-    res.redirect("/admin/users"); // Redirect to user list
+    // Find user by ID and update with the request body data
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true, // Returns the updated user
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return a success message and the updated user data
+    res.json({
+      message: "User updated successfully 🎉",
+      user: updatedUser,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
@@ -76,8 +101,25 @@ router.delete("/admin/users/delete/:id", authMiddleware, async (req, res) => {
 // View All Class Schedules
 router.get("/admin/schedules", authMiddleware, async (req, res) => {
   try {
-    const schedules = await Schedule.find().populate("teacher", "name"); // Fetch class schedules with teacher name
-    res.json(schedules);
+    const limit = parseInt(req.query.limit) || 10; // Limit of items per page, default 10
+    const page = parseInt(req.query.page) || 1; // Current page, default 1
+    const skip = (page - 1) * limit; // Calculate how many records to skip
+
+    // Fetch the total number of schedules
+    const totalSchedules = await Schedule.countDocuments();
+
+    // Fetch schedules with pagination and populate teacher's name
+    const schedules = await Schedule.find()
+      .populate("teacher", "name")
+      .limit(limit)
+      .skip(skip);
+
+    res.json({
+      totalDetails: totalSchedules, // Total number of schedules
+      currentPage: page, // Current page
+      totalPages: Math.ceil(totalSchedules / limit), // Total pages
+      schedules, // The schedule data
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
@@ -119,7 +161,7 @@ router.get("/admin/schedules/edit/:id", authMiddleware, async (req, res) => {
     if (!schedule) {
       return res.status(404).send("Schedule not found");
     }
-    res.render("admin/editSchedule", { schedule }); // Render edit schedule form
+    res.json(schedule); // Render edit schedule form
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
@@ -139,7 +181,7 @@ router.post("/admin/schedules/edit/:id", authMiddleware, async (req, res) => {
     if (!updatedSchedule) {
       return res.status(404).send("Schedule not found");
     }
-    res.redirect("/admin/schedules"); // Redirect to schedule list
+    res.json(updatedSchedule);
   } catch (error) {
     console.error(error);
     res.status(500).send("Server Error");
