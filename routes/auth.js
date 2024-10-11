@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const Student = require("../models/Student");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { body, validationResult } = require("express-validator");
@@ -81,7 +82,7 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, password, role, email } = req.body;
+    const { username, password, role, email, name } = req.body; // Include name from the request
     try {
       // Check if a user with this email already exists
       const existingUser = await User.findOne({ email });
@@ -100,9 +101,20 @@ router.post(
       // Save the new user to the database
       await newUser.save();
 
+      // Create the corresponding Student document
+      const newStudent = new Student({
+        userId: newUser._id, // Link to the user
+        name, // This is the name provided by the student during signup
+        email: newUser.email, // Copy email from user
+        grades: {},
+        comments: {},
+      });
+
+      await newStudent.save(); // Save the student document
+
       // Respond with a success message and the user details
       res.status(201).json({
-        msg: "User created successfully 🎉",
+        msg: "User and student created successfully 🎉",
         user: {
           username: newUser.username,
           email: newUser.email,

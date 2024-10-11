@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("./../authMiddleware");
 const User = require("./../models/User");
-const Schedule = require("./../models/Schedule");
+
+const Schedule = require("../models/Schedule");
 
 // Dashboard Route
 router.get("/dashboard", authMiddleware, (req, res) => {
@@ -22,7 +23,6 @@ router.get("/dashboard", authMiddleware, (req, res) => {
 });
 
 // Admin Routes
-
 // View All Users
 router.get("/admin/users", async (req, res) => {
   const limit = parseInt(req.query.limit) || 10; // Default limit to 10 if not provided
@@ -206,5 +206,197 @@ router.delete(
   }
 );
 
-// Export the router
+//Teacher Routs
+// Get Schedule for the Teacher
+router.get("/teacher/schedule", authMiddleware, async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    const schedules = await Schedule.find({ teacher: teacherId });
+    res.json(schedules);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Server Error");
+  }
+});
+
+// View Grades and Comments for a Specific Student
+router.get("/teacher/grades/:studentId", authMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // Find the student by ID and populate the teacher's username in the grades
+    const student = await User.findById(studentId).populate({
+      path: "grades.teacher",
+      select: "username", // Only select the 'username' field from the teacher
+    });
+
+    // If the student doesn't exist, return a 404 error
+    if (!student) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    // Return the student's grades
+    res.status(200).json({
+      grades: student.grades.map((grade) => ({
+        subject: grade.subject,
+        grade: grade.grade,
+        comment: grade.comment,
+        teacher: grade.teacher ? grade.teacher.username : "Unknown", // In case the teacher is not found
+      })),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: "Server Error" });
+  }
+});
+
+// Add Grades and Comments for a Specific Student
+router.post(
+  "/teacher/grades/add/:studentId",
+  authMiddleware, // Ensure the user is authenticated
+  async (req, res) => {
+    try {
+      const { subject, grade, comment } = req.body;
+
+      // Validate the input data
+      if (!subject || !grade || !comment) {
+        return res.status(400).json({
+          msg: "Please provide subject, grade, and comment for the student",
+        });
+      }
+
+      // Find the user by ID in the User model and ensure they have the "student" role
+      const student = await User.findById(req.params.studentId);
+
+      // Check if the student exists and their role is "student"
+      if (!student || student.role !== "student") {
+        return res.status(404).json({ msg: "Student not found" });
+      }
+
+      // Check if the grades field exists, if not, create an empty array
+      if (!student.grades) {
+        student.grades = [];
+      }
+
+      // Check if the grade for this subject already exists by this teacher
+      const existingGrade = student.grades.find(
+        (g) => g.subject === subject && g.teacher.equals(req.user.id)
+      );
+
+      // If a grade already exists, return an error
+      if (existingGrade) {
+        return res.status(400).json({
+          msg: "Grade for this subject already exists for this teacher",
+        });
+      }
+
+      // Add the new grade to the student's grades
+      student.grades.push({
+        teacher: req.user.id, // Assign the teacher from the authenticated user
+        subject,
+        grade,
+        comment,
+      });
+
+      // Save the updated user document (student)
+      await student.save();
+
+      // Send success response
+      res.status(201).json({ message: "Grade and comment added successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Server Error");
+    }
+  }
+);
+
+// Edit Grades and Comments for a Specific Student
+router.put(
+  "/teacher/grades/update/:studentId/:gradeId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { studentId, gradeId } = req.params; // Get student ID and grade ID from the URL
+      const { subject, grade, comment } = req.body; // Get new values from the request body
+
+      // Find the student by ID
+      const student = await User.findById(studentId);
+
+      if (!student) {
+        return res.status(404).json({ msg: "Student not found" });
+      }
+
+      // Find the index of the grade to update
+      const gradeIndex = student.grades.findIndex(
+        (g) =>
+          g._id.toString() === gradeId && g.teacher.toString() === req.user.id // Ensure the teacher matches the logged-in user
+      );
+
+      if (gradeIndex === -1) {
+        return res.status(404).json({
+          msg: "Grade not found or you are not authorized to update this grade",
+        });
+      }
+
+      // Update the grade entry
+      // Ensure to only update fields if they are provided in the request
+      if (subject) student.grades[gradeIndex].subject = subject;
+      if (grade) student.grades[gradeIndex].grade = grade;
+      if (comment) student.grades[gradeIndex].comment = comment;
+
+      // Update the updatedAt field for the student
+      student.updatedAt = Date.now();
+
+      await student.save(); // Save the updated student document
+
+      res.json({
+        message: "Grade updated successfully",
+        grade: student.grades[gradeIndex],
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Server Error");
+    }
+  }
+);
+
+// Delete Grades and Comments for a Specific Student
+router.delete(
+  "/teacher/grades/delete/:studentId/:gradeId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { studentId, gradeId } = req.params; // Get student ID and grade ID from the URL
+
+      // Find the student by ID
+      const student = await User.findById(studentId);
+
+      if (!student) {
+        return res.status(404).json({ msg: "Student not found" });
+      }
+
+      // Find the index of the grade to delete
+      const gradeIndex = student.grades.findIndex(
+        (g) => g._id.toString() === gradeId && g.teacher.equals(req.user.id) // Ensure the teacher matches the logged-in user
+      );
+
+      if (gradeIndex === -1) {
+        return res.status(404).json({
+          msg: "Grade not found or you are not authorized to delete this grade",
+        });
+      }
+
+      // Remove the grade entry
+      student.grades.splice(gradeIndex, 1); // Remove the grade using splice
+
+      await student.save(); // Save the updated student document
+
+      res.json({ message: "Grade and comment deleted successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Server Error");
+    }
+  }
+);
+
 module.exports = router;
