@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("./../authMiddleware");
 const User = require("./../models/User");
-
 const Schedule = require("../models/Schedule");
 
 // Dashboard Route
@@ -223,6 +222,7 @@ router.get("/teacher/schedule", authMiddleware, async (req, res) => {
 router.get("/teacher/grades/:studentId", authMiddleware, async (req, res) => {
   try {
     const { studentId } = req.params;
+    const limit = parseInt(req.query.limit) || 10; // Set default limit to 10 if not provided in the query
 
     // Find the student by ID and populate the teacher's username in the grades
     const student = await User.findById(studentId).populate({
@@ -235,15 +235,16 @@ router.get("/teacher/grades/:studentId", authMiddleware, async (req, res) => {
       return res.status(404).json({ msg: "Student not found" });
     }
 
-    // Return the student's grades
-    res.status(200).json({
-      grades: student.grades.map((grade) => ({
-        subject: grade.subject,
-        grade: grade.grade,
-        comment: grade.comment,
-        teacher: grade.teacher ? grade.teacher.username : "Unknown", // In case the teacher is not found
-      })),
-    });
+    // Limit the grades array before sending it in the response
+    const limitedGrades = student.grades.slice(0, limit).map((grade) => ({
+      subject: grade.subject,
+      grade: grade.grade,
+      comment: grade.comment,
+      teacher: grade.teacher ? grade.teacher.username : "Unknown", // In case the teacher is not found
+    }));
+
+    // Return the limited number of grades
+    res.status(200).json({ grades: limitedGrades });
   } catch (error) {
     console.error(error);
     res.status(500).json({ msg: "Server Error" });
@@ -398,5 +399,67 @@ router.delete(
     }
   }
 );
+
+//Student Routs
+// View schedule
+router.get("/student/schedules", authMiddleware, async (req, res) => {
+  try {
+    // Fetch the logged-in student's ID from the request object
+    const studentId = req.user.id;
+
+    // Find schedules associated with the logged-in student
+    const student = await User.findById(studentId).populate(
+      "grades.teacher",
+      "username email"
+    );
+
+    // If the student doesn't exist, return a 404 error
+    if (!student) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    // Fetch all schedules (you can modify this to filter schedules specific to the student if needed)
+    const schedules = await Schedule.find();
+
+    // Respond with the schedules
+    res.json(schedules);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Route for students to view their grades
+router.get("/student/grades", authMiddleware, async (req, res) => {
+  try {
+    // Get the authenticated student's ID from the request object
+    const studentId = req.user.id;
+
+    // Find the student by ID and populate the teacher's username in the grades
+    const student = await User.findById(studentId).populate({
+      path: "grades.teacher",
+      select: "username", // Only select the 'username' field from the teacher
+    });
+
+    // If the student doesn't exist, return a 404 error
+    if (!student) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    // Map the grades to include teacher usernames and return them
+    const mappedGrades = student.grades.map((grade) => ({
+      subject: grade.subject,
+      grade: grade.grade,
+      comment: grade.comment,
+      teacher: grade.teacher ? grade.teacher.username : "Unknown", // Handle case where teacher is not found
+    }));
+
+    // Return the grades
+    res.status(200).json({ grades: mappedGrades });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: "Server Error" });
+  }
+});
 
 module.exports = router;
